@@ -6,6 +6,7 @@ import sys
 import os.path
 import ConfigParser
 import getopt
+import commands
 
 # Settings
 
@@ -33,6 +34,13 @@ directives = re.compile('@[a-zA-Z]\s*.*')
 literal = re.compile('"[^"]*"')
 
 # Functions
+
+def osName():
+    if os.name == 'posix':
+        status, output = commands.getstatusoutput("uname -s")
+        return output.lower()
+    else:
+        return os.name
 
 def logDebug(message):
     if debug:
@@ -141,9 +149,16 @@ if ('-d', '') in options:
     debug = 1
 
 # Load environment variables from Tomfile
-config = ConfigParser.ConfigParser()        
-config.read(['Tomfile'])
+osid = osName()
+logInfo("Operating system is %s." % osid)
 
+config = ConfigParser.ConfigParser()    
+
+if os.path.exists('Tomfile.' + osid):
+    config.read(['Tomfile.' + osid])
+elif os.path.exists('Tomfile'):
+    config.read(['Tomfile'])
+    
 for name, value in config.items('environment'):
     logInfo("%s=%s" % (name.upper(), value))
     os.environ[name.upper()] = value
