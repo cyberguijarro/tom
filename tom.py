@@ -183,13 +183,16 @@ if len(targets) == 0:
 
 for target in targets:
     if target == 'help':
-        logMessage("Listing available targets...")
+        logMessage("Available targets:")
         listed = []
         for node in products.itervalues():
             if node not in listed:
                 for product in node.products:
-                    print product.name
+                    print "\t%s" % product.name
                 listed.append(node)
+        logMessage("Default targets:")
+        for target in defaultTargets:
+            print "\t%s" % target
     elif target == 'clean':
         for product in products.iterkeys():
             if os.path.exists(product):
