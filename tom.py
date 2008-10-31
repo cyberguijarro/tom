@@ -69,6 +69,7 @@ def completePath(base, file):
     
 def assignCommand(node, product, command):
     product.command = command;
+    path = os.path.dirname(node.name)
     
     for variable in os.environ.iterkeys():
         product.command = product.command.replace('$' + variable, os.environ[variable])
@@ -77,7 +78,7 @@ def assignCommand(node, product, command):
     # $~ source parent dir
     # $^ source requirements
     # $@ product name 
-    product.command = product.command.replace('$#', node.name).replace('$~', os.path.dirname(node.name)).replace('$^', ' '.join(node.requirements)).replace('$@', product.name)
+    product.command = product.command.replace('$#', node.name).replace('$~', path).replace('$^', ' '.join(node.requirements)).replace('$@', os.path.join(path, product.name))
 
 def scan(file):
     text = open(file).read()
