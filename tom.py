@@ -156,10 +156,11 @@ if os.path.exists('Tomfile.' + osid):
     config.read(['Tomfile.' + osid])
 elif os.path.exists('Tomfile'):
     config.read(['Tomfile'])
-    
-for name, value in config.items('environment'):
-    logInfo("%s=%s" % (name.upper(), value))
-    os.environ[name.upper()] = value
+
+if (config.has_section('environment')):
+    for name, value in config.items('environment'):
+        logInfo("%s=%s" % (name.upper(), value))
+        os.environ[name.upper()] = value
 
 # Scan directory hierachy
 products = dict()
