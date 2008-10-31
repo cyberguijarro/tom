@@ -12,6 +12,7 @@ import commands
 
 debug = 0
 verbose = 0
+defaultTargets = []
 
 # Classes
 
@@ -94,7 +95,11 @@ def scan(file):
             product.path = completePath(file, product.name)
             assignCommand(node, product, directive[match.end() + 1:]) # Set command expanding variables
             node.products.append(product)
-
+        elif directive.startswith('@default'):
+            for target in literal.findall(directive):
+                defaultTargets.append(target.strip('\"'))
+            logInfo('Default targets are %s.' % defaultTargets)
+            
     logDebug ("Node %s (requires %s, %d products) registered." % (node.name, node.requirements, len(node.products)))
 
     return node
@@ -173,7 +178,8 @@ for root, dirs, files in os.walk('.'):
 
 # Execute defined action
 if len(targets) == 0:
-    targets.append('main') # default target
+    for target in defaultTargets:
+        targets.append(target)
 
 for target in targets:
     if target == 'help':
