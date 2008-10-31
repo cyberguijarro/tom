@@ -29,7 +29,6 @@ class Node:
 
 # RE parsers
 
-builds = re.compile('%{.*%}', re.DOTALL)
 directives = re.compile('@[a-zA-Z]\s*.*')
 literal = re.compile('"[^"]*"')
 
@@ -84,18 +83,17 @@ def scan(file):
     node = Node()
     node.name = file
 
-    for block in builds.findall(text):
-        for directive in directives.findall(text):
-            if directive.startswith('@requires'):
-                for requirement in literal.findall(directive):
-                    node.requirements.append(completePath(file, requirement.strip('\"')))
-            elif directive.startswith('@produces'):
-                match = literal.search(directive)
-                product = Product()
-                product.name = match.group().strip('\"')
-                product.path = completePath(file, product.name)
-                assignCommand(node, product, directive[match.end() + 1:]) # Set command expanding variables
-                node.products.append(product)
+    for directive in directives.findall(text):
+        if directive.startswith('@requires'):
+            for requirement in literal.findall(directive):
+                node.requirements.append(completePath(file, requirement.strip('\"')))
+        elif directive.startswith('@produces'):
+            match = literal.search(directive)
+            product = Product()
+            product.name = match.group().strip('\"')
+            product.path = completePath(file, product.name)
+            assignCommand(node, product, directive[match.end() + 1:]) # Set command expanding variables
+            node.products.append(product)
 
     logDebug ("Node %s (requires %s, %d products) registered." % (node.name, node.requirements, len(node.products)))
 
