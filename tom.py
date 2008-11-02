@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# @produces "install" TARGET='/usr/local/bin' && cp $# $TARGET/tom && chmod a+x $TARGET/tom && echo "Installed in $TARGET."
 
 import re
 import os
@@ -162,11 +163,12 @@ def scan(file):
                 node.requirements.append(completePath(file, requirement.strip('\"')))
         elif directive.startswith('@produces'):
             match = literal.search(directive)
-            product = Product()
-            product.name = match.group().strip('\"')
-            product.path = completePath(file, product.name)
-            assignCommand(node, product, directive[match.end() + 1:]) # Set command expanding variables
-            node.products.append(product)
+            if match != None:
+                product = Product()
+                product.name = match.group().strip('\"')
+                product.path = completePath(file, product.name)
+                assignCommand(node, product, directive[match.end() + 1:]) # Set command expanding variables
+                node.products.append(product)
         elif directive.startswith('@default'):
             for target in literal.findall(directive):
                 defaultTargets.append(target.strip('\"'))
