@@ -54,44 +54,47 @@ class Builder(threading.Thread):
         return built
 
     def run(self):
-        built = 0
-        target = self.target
-        products = self.products
+        try:
+            built = 0
+            target = self.target
+            products = self.products
 
-        if not target.startswith('.'):
-            target = completePath('./', target)
-        
-        if os.path.exists(target):
-            if target in products:
+            if not target.startswith('.'):
+                target = completePath('./', target)
+            
+            if os.path.exists(target):
+                if target in products:
+                    node = products[target]
+                    built += self.build(node.requirements)
+                    
+                    # Rebuild if dependencies have been rebuilt or the source file changed
+                    if (built > 0) or (os.path.getmtime(target) < os.path.getmtime(node.name)):
+                        os.remove(target)
+                        built += self.build([target])
+                    else:
+                        logMessage("%s is up-to-date." % target)
+                        
+            elif target in products:
                 node = products[target]
                 built += self.build(node.requirements)
-                
-                # Rebuild if dependencies have been rebuilt or the source file changed
-                if (built > 0) or (os.path.getmtime(target) < os.path.getmtime(node.name)):
-                    os.remove(target)
-                    built += self.build([target])
-                else:
-                    logMessage("%s is up-to-date." % target)
-                    
-        elif target in products:
-            node = products[target]
-            built += self.build(node.requirements)
 
-            for product in node.products:
-                if product.path == target:
-                    availableThreads.acquire()
-                    logMessage("Generating %s..." % product.name)
-                    logInfo(product.command)
-                    os.system(product.command)
-                    built += 1
-                    availableThreads.release()
-                    break
-                    
-        else:
-            logMessage("Don't know how to build %s." % target)
-        
-        self.built = built
-
+                for product in node.products:
+                    if product.path == target:
+                        availableThreads.acquire()
+                        logMessage("Generating %s..." % product.name)
+                        logInfo(product.command)
+                        os.system(product.command)
+                        built += 1
+                        availableThreads.release()
+                        break
+                        
+            else:
+                logMessage("Don't know how to build %s." % target)
+            
+            self.built = built
+        except Exception, (message):
+            print "Unexpected error while building %s: %s." % (self.target, message)
+            
 # RE parsers
 
 directives = re.compile('@[a-zA-Z]\s*.*')
@@ -175,69 +178,72 @@ def scan(file):
 
 # Main program
 
-# Get command-line settings
-(options, targets) = getopt.getopt(sys.argv[1:], 'vdt:')
+try:
+    # Get command-line settings
+    (options, targets) = getopt.getopt(sys.argv[1:], 'vdt:')
 
-for (option, value) in options:
-    if option == '-v':
-        verbose = 1
-    elif option == '-d':
-        debug = 1
-    elif option == '-t':
-        availableThreads = threading.Semaphore(int(value))
+    for (option, value) in options:
+        if option == '-v':
+            verbose = 1
+        elif option == '-d':
+            debug = 1
+        elif option == '-t':
+            availableThreads = threading.Semaphore(int(value))
 
-# Load environment variables from Tomfile
-osid = osName()
-logInfo("Operating system is %s." % osid)
+    # Load environment variables from Tomfile
+    osid = osName()
+    logInfo("Operating system is %s." % osid)
 
-config = ConfigParser.ConfigParser()    
+    config = ConfigParser.ConfigParser()    
 
-if os.path.exists('Tomfile.' + osid):
-    config.read(['Tomfile.' + osid])
-elif os.path.exists('Tomfile'):
-    config.read(['Tomfile'])
+    if os.path.exists('Tomfile.' + osid):
+        config.read(['Tomfile.' + osid])
+    elif os.path.exists('Tomfile'):
+        config.read(['Tomfile'])
 
-if (config.has_section('environment')):
-    for name, value in config.items('environment'):
-        logInfo("%s=%s" % (name.upper(), value))
-        os.environ[name.upper()] = value
+    if (config.has_section('environment')):
+        for name, value in config.items('environment'):
+            logInfo("%s=%s" % (name.upper(), value))
+            os.environ[name.upper()] = value
 
-# Scan directory hierachy
-products = dict()
-for root, dirs, files in os.walk('.'):
-    for file in files:
-        type = getFileType(file)
-        if (type == 'text'):
-            node = scan(os.path.join(root, file))
-            for product in node.products:
-                products[product.path] = node
-        else:
-            logInfo('Skipping file %s (type "%s")' % (file, type))
-
-# Execute defined action
-if len(targets) == 0:
-    for target in defaultTargets:
-        targets.append(target)
-
-for target in targets:
-    if target == 'help':
-        logMessage("Available targets:")
-        listed = []
-        for node in products.itervalues():
-            if node not in listed:
+    # Scan directory hierachy
+    products = dict()
+    for root, dirs, files in os.walk('.'):
+        for file in files:
+            type = getFileType(file)
+            if (type == 'text'):
+                node = scan(os.path.join(root, file))
                 for product in node.products:
-                    print "\t%s" % product.name
-                listed.append(node)
-        logMessage("Default targets:")
+                    products[product.path] = node
+            else:
+                logInfo('Skipping file %s (type "%s")' % (file, type))
+
+    # Execute defined action
+    if len(targets) == 0:
         for target in defaultTargets:
-            print "\t%s" % target
-    elif target == 'clean':
-        for product in products.iterkeys():
-            if os.path.exists(product):
-                logMessage("Removing %s..." % product)
-                os.remove(product)
-    else:
-        logMessage("Building %s..." % target)
-        builder = Builder(target, products)
-        builder.join()
-        logMessage("Done (%d nodes built)." % builder.built)
+            targets.append(target)
+
+    for target in targets:
+        if target == 'help':
+            logMessage("Available targets:")
+            listed = []
+            for node in products.itervalues():
+                if node not in listed:
+                    for product in node.products:
+                        print "\t%s" % product.name
+                    listed.append(node)
+            logMessage("Default targets:")
+            for target in defaultTargets:
+                print "\t%s" % target
+        elif target == 'clean':
+            for product in products.iterkeys():
+                if os.path.exists(product):
+                    logMessage("Removing %s..." % product)
+                    os.remove(product)
+        else:
+            logMessage("Building %s..." % target)
+            builder = Builder(target, products)
+            builder.join()
+            logMessage("Done (%d nodes built)." % builder.built)
+except Exception, (message):
+    print "Unexpected error in main thread: %s." % message
