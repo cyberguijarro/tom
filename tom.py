@@ -8,6 +8,7 @@ import ConfigParser
 import getopt
 import commands
 import threading
+import mimetypes
 
 # Settings
 
@@ -116,16 +117,14 @@ def logInfo(message):
 def logMessage(message):
     print message
     
-def hasValidExtension(file):
-    result = 0
-    extensions = ['.c', '.cpp', '.h', '.hpp']
+def getFileType(file):
+    result = 'unknown'
+    (type, encoding) = mimetypes.guess_type(file)
     
-    for extension in extensions:
-        if (file.endswith(extension)):
-            result = 1
-            break
+    if type != None:
+        result = type.split('/')[0]
     
-    return result
+    return result;
 
 def completePath(base, file):
     return os.path.join(os.path.dirname(base), file)
@@ -201,10 +200,13 @@ if (config.has_section('environment')):
 products = dict()
 for root, dirs, files in os.walk('.'):
     for file in files:
-        if (hasValidExtension(file)):
+        type = getFileType(file)
+        if (type == 'text'):
             node = scan(os.path.join(root, file))
             for product in node.products:
                 products[product.path] = node
+        else:
+            logInfo('Skipping file %s (type "%s")' % (file, type))
 
 # Execute defined action
 if len(targets) == 0:
