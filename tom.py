@@ -7,12 +7,14 @@ import os.path
 import ConfigParser
 import getopt
 import commands
+import threading
 
 # Settings
 
 debug = 0
 verbose = 0
 defaultTargets = []
+availableThreads = threading.Semaphore(1) # default thread count
 
 # Classes
 
@@ -27,6 +29,67 @@ class Node:
         self.name = ''
         self.requirements = []
         self.products = []
+        
+class Builder(threading.Thread):
+    def __init__(self, target, products):
+        threading.Thread.__init__(self)
+        self.target = target
+        self.products = products
+        self.built = 0
+        self.start()
+
+    def build(self, targets):
+        builders = []
+        built = 0
+        
+        for target in targets:
+            thread = Builder(target, self.products)
+            builders.append(thread)
+        
+        for builder in builders:
+            builder.join()
+            built += builder.built
+        
+        return built
+
+    def run(self):
+        built = 0
+        target = self.target
+        products = self.products
+
+        if not target.startswith('.'):
+            target = completePath('./', target)
+        
+        if os.path.exists(target):
+            if target in products:
+                node = products[target]
+                built += self.build(node.requirements)
+                
+                # Rebuild if dependencies have been rebuilt or the source file changed
+                if (built > 0) or (os.path.getmtime(target) < os.path.getmtime(node.name)):
+                    os.remove(target)
+                    built += self.build([target])
+                else:
+                    logMessage("%s is up-to-date." % target)
+                    
+        elif target in products:
+            node = products[target]
+            built += self.build(node.requirements)
+
+            for product in node.products:
+                if product.path == target:
+                    availableThreads.acquire()
+                    logMessage("Generating %s..." % product.name)
+                    logInfo(product.command)
+                    os.system(product.command)
+                    built += 1
+                    availableThreads.release()
+                    break
+                    
+        else:
+            logMessage("Don't know how to build %s." % target)
+        
+        self.built = built
 
 # RE parsers
 
@@ -105,52 +168,18 @@ def scan(file):
 
     return node
 
-def build(target, products):
-    built = 0
-
-    if not target.startswith('.'):
-        built += build(completePath('./', target), products)
-    elif os.path.exists(target):
-        if target in products:
-            node = products[target]
-            
-            for requirement in node.requirements:
-                built += build(requirement, products)
-            
-            # Rebuild if dependencies have been rebuilt or the source file changed
-            if (built > 0) or (os.path.getmtime(target) < os.path.getmtime(node.name)):
-                os.remove(target)
-                built += build(target, products)
-            else:
-                print "%s is up-to-date." % target;
-    elif target in products:
-        node = products[target]
-
-        for requirement in node.requirements:
-            built += build(requirement, products)
-
-        for product in node.products:
-            if product.path == target:
-                logMessage("Generating %s..." % product.name)
-                logInfo(product.command)
-                os.system(product.command)
-                built += 1
-                break        
-    else:
-        logMessage("Don't know how to build %s." % target)
-    
-    return built
-
 # Main program
 
 # Get command-line settings
-(options, targets) = getopt.getopt(sys.argv[1:], 'vd')
+(options, targets) = getopt.getopt(sys.argv[1:], 'vdt:')
 
-if ('-v', '') in options:
-    verbose = 1
-
-if ('-d', '') in options:
-    debug = 1
+for (option, value) in options:
+    if option == '-v':
+        verbose = 1
+    elif option == '-d':
+        debug = 1
+    elif option == '-t':
+        availableThreads = threading.Semaphore(int(value))
 
 # Load environment variables from Tomfile
 osid = osName()
@@ -201,6 +230,6 @@ for target in targets:
                 os.remove(product)
     else:
         logMessage("Building %s..." % target)
-        built = build(target, products)
-        logMessage("Done (%d nodes built)." % built)
-    
+        builder = Builder(target, products)
+        builder.join()
+        logMessage("Done (%d nodes built)." % builder.built)
