@@ -176,6 +176,16 @@ def scan(file):
 
     return node
 
+def readEnvironment(file):
+    config = ConfigParser.ConfigParser()
+    config.read([file]);
+
+    if (config.has_section('environment')):
+        for name, value in config.items('environment'):
+            logInfo("%s=%s" % (name.upper(), value))
+            os.environ[name.upper()] = value
+
+
 # Main program
 
 try:
@@ -190,21 +200,26 @@ try:
         elif option == '-t':
             availableThreads = threading.Semaphore(int(value))
 
-    # Load environment variables from Tomfile
+    # Load environment variables from Tomfiles
     osid = osName()
     logInfo("Operating system is %s." % osid)
 
-    config = ConfigParser.ConfigParser()    
+    directory = os.getcwd()
+    tomfiles = []
+    while (directory != '/'):
+        filename = os.path.join(directory, 'Tomfile')
 
-    if os.path.exists('Tomfile.' + osid):
-        config.read(['Tomfile.' + osid])
-    elif os.path.exists('Tomfile'):
-        config.read(['Tomfile'])
+        if os.path.exists(filename + '.' + osid):
+            tomfiles.insert(0, filename + '.' + osid)
 
-    if (config.has_section('environment')):
-        for name, value in config.items('environment'):
-            logInfo("%s=%s" % (name.upper(), value))
-            os.environ[name.upper()] = value
+        if os.path.exists(filename):
+            tomfiles.insert(0, filename)
+
+        directory = os.path.dirname(directory)
+
+    for tomfile in tomfiles:
+        logInfo("Reading environment variables from %s." % tomfile)
+        readEnvironment(tomfile)
 
     # Scan directory hierachy
     products = dict()
@@ -216,7 +231,7 @@ try:
                 for product in node.products:
                     products[product.path] = node
             else:
-                logInfo('Skipping file %s (type "%s")' % (file, type))
+                logInfo('Skipping file %s (type "%s").' % (file, type))
 
     # Execute defined action
     if len(targets) == 0:
