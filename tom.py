@@ -254,7 +254,7 @@ try:
                 for product in node.products:
                     products[product.path] = node
             else:
-                logInfo('Skipping file %s (type "%s").' % (file, type))
+                logDebug('Skipping file %s (type "%s").' % (file, type))
 
     # Execute defined action
     if len(targets) == 0:
