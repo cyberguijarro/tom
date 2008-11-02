@@ -1,4 +1,22 @@
 #!/usr/bin/python
+
+"""
+tom - Copyright 2008 Emilio Guijarro Cameros (cyberguijarro@gmail.com)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
 # @produces "install" TARGET='/usr/local/bin' && cp $# $TARGET/tom && chmod a+x $TARGET/tom && echo "Installed in $TARGET."
 
 import re
@@ -192,7 +210,7 @@ def readEnvironment(file):
 
 try:
     # Get command-line settings
-    (options, targets) = getopt.getopt(sys.argv[1:], 'vdt:')
+    (options, targets) = getopt.getopt(sys.argv[1:], 'vdt:l')
 
     for (option, value) in options:
         if option == '-v':
@@ -201,6 +219,9 @@ try:
             debug = 1
         elif option == '-t':
             availableThreads = threading.Semaphore(int(value))
+        elif option == '-l':
+            print __doc__
+            exit()
 
     # Load environment variables from Tomfiles
     osid = osName()
