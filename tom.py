@@ -132,9 +132,15 @@ def completePath(base, file):
 def assignCommand(node, product, command):
     product.command = command;
     path = os.path.dirname(node.name)
+    changes = 1
     
-    for variable in os.environ.iterkeys():
-        product.command = product.command.replace('$' + variable, os.environ[variable])
+    while changes > 0:
+        changes = 0
+        for variable in os.environ.iterkeys():
+            target = '$' + variable
+            if product.command.find(target) != -1:
+                product.command = product.command.replace('$' + variable, os.environ[variable])
+                changes = changes + 1
     
     # $# source file
     # $~ source parent dir
